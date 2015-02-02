@@ -56,7 +56,7 @@ var hugoCmdV *cobra.Command
 
 //Flags that are to be added to commands.
 var BuildWatch, IgnoreCache, Draft, Future, UglyUrls, Verbose, Logging, VerboseLog, DisableRSS, DisableSitemap, PluralizeListTitles, NoTimes bool
-var Source, CacheDir, Destination, Theme, BaseUrl, CfgFile, LogFile, Editor string
+var Source, SourceUrl, CacheDir, Destination, Theme, BaseUrl, CfgFile, LogFile, Editor string
 
 //Execute adds all child commands to the root command HugoCmd and sets flags appropriately.
 func Execute() {
@@ -82,6 +82,7 @@ func init() {
 	HugoCmd.PersistentFlags().BoolVar(&DisableRSS, "disableRSS", false, "Do not build RSS files")
 	HugoCmd.PersistentFlags().BoolVar(&DisableSitemap, "disableSitemap", false, "Do not build Sitemap file")
 	HugoCmd.PersistentFlags().StringVarP(&Source, "source", "s", "", "filesystem path to read files relative from")
+	HugoCmd.PersistentFlags().StringVar(&SourceUrl, "sourceUrl", "", "URL to JSON source to generate the source files")
 	HugoCmd.PersistentFlags().StringVarP(&CacheDir, "cacheDir", "", "$TMPDIR/hugo_cache/", "filesystem path to cache directory")
 	HugoCmd.PersistentFlags().BoolVarP(&IgnoreCache, "ignoreCache", "", false, "Ignores the cache directory for reading but still writes to it")
 	HugoCmd.PersistentFlags().StringVarP(&Destination, "destination", "d", "", "filesystem path to write files to")
@@ -117,6 +118,7 @@ func InitializeConfig() {
 	viper.SetDefault("DisableRSS", false)
 	viper.SetDefault("DisableSitemap", false)
 	viper.SetDefault("ContentDir", "content")
+	viper.SetDefault("SourceUrl", "")
 	viper.SetDefault("LayoutDir", "layouts")
 	viper.SetDefault("StaticDir", "static")
 	viper.SetDefault("ArchetypeDir", "archetypes")
@@ -198,6 +200,10 @@ func InitializeConfig() {
 	} else {
 		dir, _ := os.Getwd()
 		viper.Set("WorkingDir", dir)
+	}
+
+	if SourceUrl != "" {
+		viper.Set("SourceUrl", SourceUrl)
 	}
 
 	if hugoCmdV.PersistentFlags().Lookup("ignoreCache").Changed {

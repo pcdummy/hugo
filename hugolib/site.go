@@ -342,6 +342,10 @@ func (s *Site) initialize() (err error) {
 		return err
 	}
 
+	if viper.GetString("SourceUrl") != "" {
+		source.GenerateSourceFromJson()
+	}
+
 	staticDir := helpers.AbsPathify(viper.GetString("StaticDir") + "/")
 
 	s.Source = &source.Filesystem{
