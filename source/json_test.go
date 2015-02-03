@@ -17,6 +17,13 @@ import (
 	"testing"
 )
 
-func TestMe(t *testing.T) {
+func TestSite(t *testing.T) {
+
+}
+
+func TestStreamContent(t *testing.T) {
+
+}
+func TestGenerateSourceFromJson(t *testing.T) {
 
 }
