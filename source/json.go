@@ -47,7 +47,11 @@ func (s *Site) path() string {
 	return cd + filepath.Clean(s.Path)
 }
 
-func GenerateSourceFromJson(fs afero.Fs) {
+func GenerateSourceFromJson(hc *http.Client, fs afero.Fs) {
+
+	if nil == hc {
+		hc = http.DefaultClient
+	}
 
 	cd = helpers.AbsPathify(viper.GetString("ContentDir")) + ps + "FromJSON" + ps
 	if err := fs.RemoveAll(cd); err != nil {
@@ -55,7 +59,7 @@ func GenerateSourceFromJson(fs afero.Fs) {
 	}
 
 	url := viper.GetString("SourceUrl")
-	dec, err := streamContent(url, http.DefaultClient, fs)
+	dec, err := streamContent(url, hc, fs)
 	if err != nil {
 		jww.ERROR.Printf("Failed to get json resource %s with error message %s", url, err)
 		return
