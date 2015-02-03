@@ -15,53 +15,70 @@ package source
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"bytes"
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/afero"
 	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/hugofs"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+)
+
+var (
+	ps = string(os.PathSeparator)
+	cd string
 )
 
 type Site struct {
 	Path, Content string
 }
 
-func GenerateSourceFromJson() {
+func (s *Site) reader() io.Reader {
+	cb := []byte(s.Content)
+	return bytes.NewReader(cb)
+}
+
+func (s *Site) path() string {
+	return cd + filepath.Clean(s.Path)
+}
+
+func GenerateSourceFromJson(fs afero.Fs) {
+
+	cd = helpers.AbsPathify(viper.GetString("ContentDir")) + ps + "FromJSON" + ps
+	if err := fs.RemoveAll(cd); err != nil {
+		jww.ERROR.Printf("Failed remove %s with error message %s", cd, err.Error())
+	}
 
 	url := viper.GetString("SourceUrl")
-	dec, err := streamContent(url, http.DefaultClient, hugofs.SourceFs)
+	dec, err := streamContent(url, http.DefaultClient, fs)
 	if err != nil {
 		jww.ERROR.Printf("Failed to get json resource %s with error message %s", url, err)
 		return
 	}
 
-	jww.INFO.Printf("Generating files in: %s", helpers.AbsPathify(viper.GetString("ContentDir")))
+	c := 0
+	jww.INFO.Printf("Generating files from JSON %s in: %s", url, cd)
 	for {
 		var s Site
 		if err := dec.Decode(&s); err == io.EOF {
-			jww.INFO.Printf("Finished generating files from JSON stream")
+			jww.INFO.Printf("Generated %d file/s from JSON stream", c)
 			break
 		} else if err != nil {
 			jww.WARN.Printf("Parser Error in JSON stream: %s", err.Error())
 		} else {
-			if err := writeToDisk(&s); err != nil {
-				jww.ERROR.Printf("Failed to write to disc: %s\n%#v", err, s)
+			if err := helpers.SafeWriteToDisk(s.path(), s.reader(), fs); err != nil {
+				jww.FATAL.Fatalf("Failed to write to disc: %s\n%#v", err, s)
 			}
+			c++
 		}
 	}
 }
 
-func writeToDisk(s *Site) error {
-	fmt.Printf("Path: %s Content Length: %s\n", s.Path, len(s.Content))
-	return nil
-}
-
-// resGetResource loads the content of a local or remote file
 func streamContent(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error) {
 	if url == "" {
 		return nil, nil
