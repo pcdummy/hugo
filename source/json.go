@@ -17,8 +17,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 
@@ -29,78 +27,61 @@ import (
 	"github.com/spf13/viper"
 )
 
-type site struct {
-	Directory, Filename, Content string
+type Site struct {
+	Path, Content string
 }
 
 func GenerateSourceFromJson() {
 
-	j := getJson()
-	jww.INFO.Printf("JSON: %#v", j)
+	url := viper.GetString("SourceUrl")
+	dec, err := streamContent(url, http.DefaultClient, hugofs.SourceFs)
+	if err != nil {
+		jww.ERROR.Printf("Failed to get json resource %s with error message %s", url, err)
+		return
+	}
 
 	jww.INFO.Printf("Generating files in: %s", helpers.AbsPathify(viper.GetString("ContentDir")))
-
+	for {
+		var s Site
+		if err := dec.Decode(&s); err == io.EOF {
+			jww.INFO.Printf("Finished generating files from JSON stream")
+			break
+		} else if err != nil {
+			jww.WARN.Printf("Parser Error in JSON stream: %s", err.Error())
+		} else {
+			if err := writeToDisk(&s); err != nil {
+				jww.ERROR.Printf("Failed to write to disc: %s\n%#v", err, s)
+			}
+		}
+	}
 }
 
-// getRemote loads the content of a remote file.
-func getRemote(url string, fs afero.Fs, hc *http.Client) ([]byte, error) {
-
-	jww.INFO.Printf("Downloading content JSON: %s ...", url)
-	res, err := hc.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	c, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-// getLocal loads the content of a local file
-func getLocal(filePath string, fs afero.Fs) ([]byte, error) {
-
-	if e, err := helpers.Exists(filePath, fs); !e {
-		return nil, err
-	}
-
-	f, err := fs.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	return ioutil.ReadAll(f)
+func writeToDisk(s *Site) error {
+	fmt.Printf("Path: %s Content Length: %s\n", s.Path, len(s.Content))
+	return nil
 }
 
 // resGetResource loads the content of a local or remote file
-func downloadContent(url string) ([]byte, error) {
+func streamContent(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error) {
 	if url == "" {
 		return nil, nil
 	}
 	if strings.Contains(url, "://") {
-		return getRemote(url, hugofs.SourceFs, http.DefaultClient)
-	}
-	return getLocal(url, hugofs.SourceFs)
-}
-
-// GetJson expects the url to a resource which can either be a local or a remote one.
-// GetJson returns nil or parsed JSON to use in a short code.
-func getJson() interface{} {
-	url := viper.GetString("SourceUrl")
-	c, err := downloadContent(url)
-	if err != nil {
-		jww.ERROR.Printf("Failed to get json resource %s with error message %s", url, err)
-		return nil
-	}
-	// implement all readers via streams stream file and stream from URL
-	dec := json.NewDecoder(strings.NewReader(jsonStream))
-	for {
-		var m Message
-		if err := dec.Decode(&m); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
+		jww.INFO.Printf("Downloading content JSON: %s ...", url)
+		res, err := hc.Get(url)
+		if err != nil {
+			return nil, err
 		}
-		fmt.Printf("%s: %s\n", m.Name, m.Text)
+		return json.NewDecoder(res.Body), nil
 	}
+
+	if e, err := helpers.Exists(url, fs); !e {
+		return nil, err
+	}
+
+	f, err := fs.Open(url)
+	if err != nil {
+		return nil, err
+	}
+	return json.NewDecoder(f), nil
 }
