@@ -343,14 +343,13 @@ func (s *Site) initialize() (err error) {
 	}
 
 	if viper.GetString("SourceUrl") != "" {
-		source.GenerateSourceFromJson(nil, hugofs.SourceFs)
-	}
-
-	staticDir := helpers.AbsPathify(viper.GetString("StaticDir") + "/")
-
-	s.Source = &source.Filesystem{
-		AvoidPaths: []string{staticDir},
-		Base:       s.absContentDir(),
+		s.Source = source.GenerateSourceFromJson(nil, hugofs.SourceFs)
+	} else {
+		staticDir := helpers.AbsPathify(viper.GetString("StaticDir") + "/")
+		s.Source = &source.Filesystem{
+			AvoidPaths: []string{staticDir},
+			Base:       s.absContentDir(),
+		}
 	}
 
 	s.Menus = Menus{}

@@ -20,53 +20,61 @@ import (
 	"strings"
 
 	"bytes"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/afero"
 	"github.com/spf13/hugo/helpers"
+	"github.com/spf13/hugo/utils"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+    "time"
 )
 
-var (
-	ps = string(os.PathSeparator)
-	cd string
+type (
+	JsonSite struct {
+		Path, Content string
+	}
+
+	JsonSource struct {
+		sites []*JsonSite
+	}
 )
 
-type Site struct {
-	Path, Content string
+func (i *JsonSource) Files() []*File {
+	files := make([]*File, len(i.sites))
+	for i, s := range i.sites {
+		files[i] = NewFileWithContents(s.path(), s.reader() )
+	}
+	return files
 }
 
-func (s *Site) reader() io.Reader {
-	cb := []byte(s.Content)
-	return bytes.NewReader(cb)
+func (s *JsonSite) reader() io.Reader {
+	return bytes.NewReader([]byte(s.Content))
 }
 
-func (s *Site) path() string {
-	return cd + filepath.Clean(s.Path)
+func (s *JsonSite) path() string {
+	return filepath.Clean(s.Path)
 }
 
-func GenerateSourceFromJson(hc *http.Client, fs afero.Fs) {
+/*
+    @todo implement polling and rebuild of the site via utils.CheckErr(commands.BuildSite(true))
+*/
+func generateSourceFromJson(hc *http.Client, fs afero.Fs,site *Site) *JsonSource {
 
 	if nil == hc {
 		hc = http.DefaultClient
-	}
-
-	cd = helpers.AbsPathify(viper.GetString("ContentDir")) + ps + "FromJSON" + ps
-	if err := fs.RemoveAll(cd); err != nil {
-		jww.ERROR.Printf("Failed remove %s with error message %s", cd, err.Error())
 	}
 
 	url := viper.GetString("SourceUrl")
 	dec, err := streamContent(url, hc, fs)
 	if err != nil {
 		jww.ERROR.Printf("Failed to get json resource %s with error message %s", url, err)
-		return
+		return nil
 	}
 
 	c := 0
-	jww.INFO.Printf("Generating files from JSON %s in: %s", url, cd)
+	sources := make([]*JsonSite,0,10000)
+	jww.INFO.Printf("Generating files from JSON %s", url)
 	for {
 		var s Site
 		if err := dec.Decode(&s); err == io.EOF {
@@ -75,11 +83,15 @@ func GenerateSourceFromJson(hc *http.Client, fs afero.Fs) {
 		} else if err != nil {
 			jww.WARN.Printf("Parser Error in JSON stream: %s", err.Error())
 		} else {
-			if err := helpers.SafeWriteToDisk(s.path(), s.reader(), fs); err != nil {
-				jww.FATAL.Fatalf("Failed to write to disc: %s\n%#v", err, s)
-			}
+			sources = append(sources, &s)
 			c++
 		}
+	}
+
+    defer utils.CheckErr(buildSite(site))
+
+	return &JsonSource{
+		sites: sources,
 	}
 }
 
@@ -105,4 +117,17 @@ func streamContent(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, err
 		return nil, err
 	}
 	return json.NewDecoder(f), nil
+}
+
+func buildSite(site *Site ) (err error) {
+    startTime := time.Now()
+
+    err = site.Build()
+    if err != nil {
+        return err
+    }
+    site.Stats()
+    jww.FEEDBACK.Printf("in %v ms\n", int(1000*time.Since(startTime).Seconds()))
+
+    return nil
 }
