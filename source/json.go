@@ -24,10 +24,8 @@ import (
 
 	"github.com/spf13/afero"
 	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/utils"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-    "time"
 )
 
 type (
@@ -35,17 +33,24 @@ type (
 		Path, Content string
 	}
 
-	JsonSource struct {
-		sites []*JsonSite
+	JsonSites struct {
+		cacheFiles []*File
+		sites      []*JsonSite
 	}
 )
 
-func (i *JsonSource) Files() []*File {
-	files := make([]*File, len(i.sites))
-	for i, s := range i.sites {
-		files[i] = NewFileWithContents(s.path(), s.reader() )
+func (js *JsonSites) clear() {
+	js.cacheFiles = nil
+}
+
+func (js *JsonSites) Files() []*File {
+	if js.cacheFiles == nil {
+		js.cacheFiles = make([]*File, len(js.sites))
+		for i, s := range js.sites {
+			js.cacheFiles[i] = NewFileWithContents(s.path(), s.reader())
+		}
 	}
-	return files
+	return js.cacheFiles
 }
 
 func (s *JsonSite) reader() io.Reader {
@@ -57,9 +62,9 @@ func (s *JsonSite) path() string {
 }
 
 /*
-    @todo implement polling and rebuild of the site via utils.CheckErr(commands.BuildSite(true))
+   @todo implement polling and rebuild of the site via utils.CheckErr(commands.BuildSite(true))
 */
-func generateSourceFromJson(hc *http.Client, fs afero.Fs,site *Site) *JsonSource {
+func GenerateSourceFromJson(hc *http.Client, fs afero.Fs) *JsonSites {
 
 	if nil == hc {
 		hc = http.DefaultClient
@@ -73,10 +78,10 @@ func generateSourceFromJson(hc *http.Client, fs afero.Fs,site *Site) *JsonSource
 	}
 
 	c := 0
-	sources := make([]*JsonSite,0,10000)
+	sources := make([]*JsonSite, 0, 10000)
 	jww.INFO.Printf("Generating files from JSON %s", url)
 	for {
-		var s Site
+		var s JsonSite
 		if err := dec.Decode(&s); err == io.EOF {
 			jww.INFO.Printf("Generated %d file/s from JSON stream", c)
 			break
@@ -88,9 +93,7 @@ func generateSourceFromJson(hc *http.Client, fs afero.Fs,site *Site) *JsonSource
 		}
 	}
 
-    defer utils.CheckErr(buildSite(site))
-
-	return &JsonSource{
+	return &JsonSites{
 		sites: sources,
 	}
 }
@@ -119,15 +122,15 @@ func streamContent(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, err
 	return json.NewDecoder(f), nil
 }
 
-func buildSite(site *Site ) (err error) {
-    startTime := time.Now()
-
-    err = site.Build()
-    if err != nil {
-	return err
-    }
-    site.Stats()
-    jww.FEEDBACK.Printf("in %v ms\n", int(1000*time.Since(startTime).Seconds()))
-
-    return nil
-}
+//func buildSite(site *Site) (err error) {
+//	startTime := time.Now()
+//
+//	err = site.Build()
+//	if err != nil {
+//		return err
+//	}
+//	site.Stats()
+//	jww.FEEDBACK.Printf("in %v ms\n", int(1000*time.Since(startTime).Seconds()))
+//
+//	return nil
+//}
