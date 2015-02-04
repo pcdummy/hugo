@@ -17,13 +17,6 @@ import (
 	"testing"
 )
 
-func TestJsonPage(t *testing.T) {
-
-}
-
-func TestJsonStreamToFiles(t *testing.T) {
-
-}
-func TestJsonDecoder(t *testing.T) {
+func TestSourceFiles(t *testing.T) {
 
 }

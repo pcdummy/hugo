@@ -29,59 +29,38 @@ import (
 )
 
 type (
-	JsonSite struct {
-		Path, Content string
-	}
-
-	JsonSites struct {
-		cacheFiles []*File
-		sites      []*JsonSite
+	JsonPage struct {
+		FilePath string `json:"Path"`
+		Content  string `json:"Content"`
 	}
 )
 
-func (js *JsonSites) clear() {
-	js.cacheFiles = nil
+func (p *JsonPage) Reader() io.Reader {
+	return bytes.NewReader([]byte(p.Content))
 }
 
-func (js *JsonSites) Files() []*File {
-	if js.cacheFiles == nil {
-		js.cacheFiles = make([]*File, len(js.sites))
-		for i, s := range js.sites {
-			js.cacheFiles[i] = NewFileWithContents(s.path(), s.reader())
-		}
-	}
-	return js.cacheFiles
+func (p *JsonPage) Path() string {
+	return filepath.Clean(p.FilePath)
 }
 
-func (s *JsonSite) reader() io.Reader {
-	return bytes.NewReader([]byte(s.Content))
-}
-
-func (s *JsonSite) path() string {
-	return filepath.Clean(s.Path)
-}
-
-/*
-   @todo implement polling and rebuild of the site via utils.CheckErr(commands.BuildSite(true))
-*/
-func GenerateSourceFromJson(hc *http.Client, fs afero.Fs) *JsonSites {
-
-	if nil == hc {
-		hc = http.DefaultClient
-	}
-
+// jsonStreamToFiles acts as the main function to be called in url.go
+func jsonStreamToFiles(hc *http.Client, fs afero.Fs) []Pager {
 	url := viper.GetString("SourceUrl")
-	dec, err := streamContent(url, hc, fs)
-	if err != nil {
-		jww.ERROR.Printf("Failed to get json resource %s with error message %s", url, err)
+	if url == "" {
+		return nil
+	}
+
+	dec, err := jsonDecoder(url, hc, fs)
+	if err != nil || dec == nil {
+		jww.ERROR.Printf("Failed to get json resource \"%s\" with error message: %s", url, err)
 		return nil
 	}
 
 	c := 0
-	sources := make([]*JsonSite, 0, 10000)
+	sources := make([]Pager, 0, 1000)
 	jww.INFO.Printf("Generating files from JSON %s", url)
 	for {
-		var s JsonSite
+		var s JsonPage
 		if err := dec.Decode(&s); err == io.EOF {
 			jww.INFO.Printf("Generated %d file/s from JSON stream", c)
 			break
@@ -93,17 +72,16 @@ func GenerateSourceFromJson(hc *http.Client, fs afero.Fs) *JsonSites {
 		}
 	}
 
-	return &JsonSites{
-		sites: sources,
-	}
+	return sources
 }
 
-func streamContent(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error) {
+func jsonDecoder(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error) {
 	if url == "" {
 		return nil, nil
 	}
 	if strings.Contains(url, "://") {
 		jww.INFO.Printf("Downloading content JSON: %s ...", url)
+		// @todo check if filename contains json or response header contains json
 		res, err := hc.Get(url)
 		if err != nil {
 			return nil, err
@@ -121,16 +99,3 @@ func streamContent(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, err
 	}
 	return json.NewDecoder(f), nil
 }
-
-//func buildSite(site *Site) (err error) {
-//	startTime := time.Now()
-//
-//	err = site.Build()
-//	if err != nil {
-//		return err
-//	}
-//	site.Stats()
-//	jww.FEEDBACK.Printf("in %v ms\n", int(1000*time.Since(startTime).Seconds()))
-//
-//	return nil
-//}
