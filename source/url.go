@@ -38,9 +38,7 @@ func (sf *SourceFiles) merge(ps []Pager) {
 	if ps == nil {
 		return
 	}
-	for _, p := range ps {
-		sf.pages = append(sf.pages, p)
-	}
+	sf.pages = append(sf.pages, ps...)
 }
 
 // Files returns all available files. In this case it merges the virtual files from the URL
