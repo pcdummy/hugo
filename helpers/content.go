@@ -69,18 +69,16 @@ var blackfridayExtensionMap = map[string]int{
 	"autoHeaderIds":          blackfriday.EXTENSION_AUTO_HEADER_IDS,
 }
 
+var stripHTMLReplacer = strings.NewReplacer("\n", " ", "</p>", "\n", "<br>", "\n", "<br />", "\n")
+
 // StripHTML accepts a string, strips out all HTML tags and returns it.
 func StripHTML(s string) string {
-	output := ""
 
 	// Shortcut strings with no tags in them
 	if !strings.ContainsAny(s, "<>") {
-		output = s
+		return s
 	} else {
-		s = strings.Replace(s, "\n", " ", -1)
-		s = strings.Replace(s, "</p>", "\n", -1)
-		s = strings.Replace(s, "<br>", "\n", -1)
-		s = strings.Replace(s, "<br />", "\n", -1) // <br /> is the xhtml line break tag
+		s = stripHTMLReplacer.Replace(s)
 
 		// Walk through the string removing all tags
 		b := new(bytes.Buffer)
@@ -97,9 +95,8 @@ func StripHTML(s string) string {
 				}
 			}
 		}
-		output = b.String()
+		return b.String()
 	}
-	return output
 }
 
 // StripEmptyNav strips out empty <nav> tags from content.
@@ -274,10 +271,11 @@ func TruncateWords(s string, max int) string {
 }
 
 // TruncateWordsToWholeSentence takes content and an int
-// and returns entire sentences from content, delimited by the int.
-func TruncateWordsToWholeSentence(words []string, max int) string {
-	if max > len(words) {
-		return strings.Join(words, " ")
+// and returns entire sentences from content, delimited by the int
+// and whether it's truncated or not.
+func TruncateWordsToWholeSentence(words []string, max int) (string, bool) {
+	if max >= len(words) {
+		return strings.Join(words, " "), false
 	}
 
 	for counter, word := range words[max:] {
@@ -285,11 +283,12 @@ func TruncateWordsToWholeSentence(words []string, max int) string {
 			strings.HasSuffix(word, "?") ||
 			strings.HasSuffix(word, ".\"") ||
 			strings.HasSuffix(word, "!") {
-			return strings.Join(words[:max+counter+1], " ")
+			upper := max + counter + 1
+			return strings.Join(words[:upper], " "), (upper < len(words))
 		}
 	}
 
-	return strings.Join(words[:max], " ")
+	return strings.Join(words[:max], " "), true
 }
 
 // GetRstContent calls the Python script rst2html as an external helper
