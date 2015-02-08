@@ -599,11 +599,32 @@ func (s *Site) BuildSiteMeta() (err error) {
 	return
 }
 
+// getMenuRaw loads first a JSON based menu from a local or remote source
+// and merges then the menu from the config file into the existing menu and overrides
+// existing values.
+func (s *Site) getMenuRaw() map[string]interface{} {
+	m := MenuLoadFromJson(nil, hugofs.SourceFs)
+	if m == nil {
+		m = make(map[string]interface{})
+	}
+
+	if vm := viper.GetStringMap("menu"); vm != nil {
+		for k, v := range vm {
+			if _, ok := m[k]; ok {
+				jww.INFO.Printf("Menu: overriding key: %s\n", k)
+			}
+			m[k] = v
+		}
+	}
+
+	return m
+}
+
 func (s *Site) getMenusFromConfig() Menus {
 
 	ret := Menus{}
 
-	if menus := viper.GetStringMap("menu"); menus != nil {
+	if menus := s.getMenuRaw(); menus != nil {
 		for name, menu := range menus {
 			m, err := cast.ToSliceE(menu)
 			if err != nil {

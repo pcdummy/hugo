@@ -35,10 +35,9 @@ type (
 
 // merge merges a slice of pages into pages variable
 func (sf *SourceFiles) merge(ps []Pager) {
-	if ps == nil {
-		return
+	if ps != nil {
+        sf.pages = append(sf.pages, ps...)
 	}
-	sf.pages = append(sf.pages, ps...)
 }
 
 // Files returns all available files. In this case it merges the virtual files from the URL
@@ -71,7 +70,7 @@ func MergeUrl(files Input, fs afero.Fs) *SourceFiles {
 	sf := &SourceFiles{
 		pages: make([]Pager, 0, 10000), // 10k pages should be on average enough
 	}
-	sf.merge(jsonStreamToFiles(http.DefaultClient, fs))
+	sf.merge(loadJson(http.DefaultClient, fs))
 	// pages can now be merged with more sources like XML or freaky CSV
 
 	sf.files = files

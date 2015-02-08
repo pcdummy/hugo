@@ -14,10 +14,8 @@
 package source
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"bytes"
 	"path/filepath"
@@ -29,28 +27,28 @@ import (
 )
 
 type (
-	JsonPage struct {
+	jsonPage struct {
 		FilePath string `json:"Path"`
 		Content  string `json:"Content"`
 	}
 )
 
-func (p *JsonPage) Reader() io.Reader {
+func (p *jsonPage) Reader() io.Reader {
 	return bytes.NewReader([]byte(p.Content))
 }
 
-func (p *JsonPage) Path() string {
+func (p *jsonPage) Path() string {
 	return filepath.Clean(p.FilePath)
 }
 
 // jsonStreamToFiles acts as the main function to be called in url.go
-func jsonStreamToFiles(hc *http.Client, fs afero.Fs) []Pager {
+func loadJson(hc *http.Client, fs afero.Fs) []Pager {
 	url := viper.GetString("SourceUrl")
 	if url == "" {
 		return nil
 	}
 
-	dec, err := jsonDecoder(url, hc, fs)
+	dec, err := helpers.JsonDecoder(url, hc, fs)
 	if err != nil || dec == nil {
 		jww.ERROR.Printf("Failed to get json resource \"%s\" with error message: %s", url, err)
 		return nil
@@ -60,7 +58,7 @@ func jsonStreamToFiles(hc *http.Client, fs afero.Fs) []Pager {
 	sources := make([]Pager, 0, 1000)
 	jww.INFO.Printf("Generating files from JSON %s", url)
 	for {
-		var s JsonPage
+		var s jsonPage
 		if err := dec.Decode(&s); err == io.EOF {
 			jww.INFO.Printf("Generated %d file/s from JSON stream", c)
 			break
@@ -73,29 +71,4 @@ func jsonStreamToFiles(hc *http.Client, fs afero.Fs) []Pager {
 	}
 
 	return sources
-}
-
-func jsonDecoder(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error) {
-	if url == "" {
-		return nil, nil
-	}
-	if strings.Contains(url, "://") {
-		jww.INFO.Printf("Downloading content JSON: %s ...", url)
-		// @todo check if filename contains json or response header contains json
-		res, err := hc.Get(url)
-		if err != nil {
-			return nil, err
-		}
-		return json.NewDecoder(res.Body), nil
-	}
-
-	if e, err := helpers.Exists(url, fs); !e {
-		return nil, err
-	}
-
-	f, err := fs.Open(url)
-	if err != nil {
-		return nil, err
-	}
-	return json.NewDecoder(f), nil
 }

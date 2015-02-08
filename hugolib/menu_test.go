@@ -5,8 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"bytes"
+
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/afero"
+	"github.com/spf13/hugo/helpers"
 	"github.com/spf13/hugo/hugofs"
 	"github.com/spf13/hugo/source"
 	"github.com/spf13/viper"
@@ -54,6 +57,14 @@ const (
    name = "Unicode Russian"
    identifier = "unicode-russian"
    url = "/новости-проекта"` // Russian => "news-project"
+
+	MENU_JSON_STREAM = `{"main":[{"name":"Download Hugo","pre":"\u003ci class='fa fa-download'\u003e\u003c/i\u003e","url":"https://github.com/spf13/hugo/releases","weight":-200},{"name":"Showcase","pre":"\u003ci class='fa fa-cubes'\u003e\u003c/i\u003e","url":"/showcase/","weight":-180},{"name":"Discuss Hugo","pre":"\u003ci class='fa fa-comments'\u003e\u003c/i\u003e","url":"http://discuss.gohugo.io/","weight":-150},{"identifier":"about","name":"About Hugo","pre":"\u003ci class='fa fa-heart'\u003e\u003c/i\u003e","weight":-110},{"identifier":"getting started","name":"Getting Started","pre":"\u003ci class='fa fa-road'\u003e\u003c/i\u003e","weight":-100},{"identifier":"content","name":"Content","pre":"\u003ci class='fa fa-file-text'\u003e\u003c/i\u003e","weight":-90},{"identifier":"themes","name":"Themes","pre":"\u003ci class='fa fa-desktop'\u003e\u003c/i\u003e","weight":-85},{"identifier":"layout","name":"Templates","pre":"\u003ci class='fa fa-columns'\u003e\u003c/i\u003e","weight":-80},{"identifier":"taxonomy","name":"Taxonomies","pre":"\u003ci class='fa fa-tags'\u003e\u003c/i\u003e","weight":-70},{"identifier":"extras","name":"Extras","pre":"\u003ci class='fa fa-gift'\u003e\u003c/i\u003e","weight":-60},{"identifier":"community","name":"Community","pre":"\u003ci class='fa fa-group'\u003e\u003c/i\u003e","weight":-50},{"name":"Discussion Forum","parent":"community","url":"http://discuss.gohugo.io","weight":150},{"identifier":"tutorials","name":"Tutorials","pre":"\u003ci class='fa fa-book'\u003e\u003c/i\u003e","weight":-40},{"identifier":"troubleshooting","name":"Troubleshooting","pre":"\u003ci class='fa fa-wrench'\u003e\u003c/i\u003e","weight":-30}]}
+{"footer":[{"name":"Download Hugo","pre":"\u003ci class='fa fa-download'\u003e\u003c/i\u003e","url":"https://github.com/spf13/hugo/releases","weight":-200},{"name":"Showcase","pre":"\u003ci class='fa fa-cubes'\u003e\u003c/i\u003e","url":"/showcase/","weight":-180},{"name":"Discuss Hugo","pre":"\u003ci class='fa fa-comments'\u003e\u003c/i\u003e","url":"http://discuss.gohugo.io/","weight":-150},{"identifier":"about","name":"About Hugo","pre":"\u003ci class='fa fa-heart'\u003e\u003c/i\u003e","weight":-110},{"identifier":"getting started","name":"Getting Started","pre":"\u003ci class='fa fa-road'\u003e\u003c/i\u003e","weight":-100},{"identifier":"content","name":"Content","pre":"\u003ci class='fa fa-file-text'\u003e\u003c/i\u003e","weight":-90},{"identifier":"themes","name":"Themes","pre":"\u003ci class='fa fa-desktop'\u003e\u003c/i\u003e","weight":-85},{"identifier":"layout","name":"Templates","pre":"\u003ci class='fa fa-columns'\u003e\u003c/i\u003e","weight":-80},{"identifier":"taxonomy","name":"Taxonomies","pre":"\u003ci class='fa fa-tags'\u003e\u003c/i\u003e","weight":-70},{"identifier":"extras","name":"Extras","pre":"\u003ci class='fa fa-gift'\u003e\u003c/i\u003e","weight":-60},{"identifier":"community","name":"Community","pre":"\u003ci class='fa fa-group'\u003e\u003c/i\u003e","weight":-50},{"name":"Discussion Forum","parent":"community","url":"http://discuss.gohugo.io","weight":150},{"identifier":"tutorials","name":"Tutorials","pre":"\u003ci class='fa fa-book'\u003e\u003c/i\u003e","weight":-40},{"identifier":"troubleshooting","name":"Troubleshooting","pre":"\u003ci class='fa fa-wrench'\u003e\u003c/i\u003e","weight":-30}]}
+{"grandparent":[{"identifier":"grandparentId","name":"grandparent","url":"/grandparent"},{"identifier":"parentId","name":"parent","parent":"grandparentId","url":"/parent"},{"identifier":"grandchildId","name":"Go Home3","parent":"parentId","url":"/"}]}
+{"main2":[{"name":"Go Home","post":"\u003c/div\u003e","pre":"\u003cdiv\u003e","url":"/","weight":1},{"name":"Blog","url":"/posts"}]}
+{"tax":[{"identifier":"1","name":"Tax1","url":"/two/key/"},{"identifier":"2","name":"Tax2","url":"/two/key"},{"identifier":"xml","name":"Tax RSS","url":"/two/key.xml"}]}
+{"unicode":[{"identifier":"unicode-russian","name":"Unicode Russian","url":"/новости-проекта"}]}
+`
 )
 
 var MENU_PAGE_1 = []byte(`+++
@@ -490,5 +501,32 @@ func tomlToMap(s string) (map[string]interface{}, error) {
 	}
 
 	return data, nil
+}
 
+func TestMenuLoadFromJson(t *testing.T) {
+
+	fs := new(afero.MemMapFs)
+
+	r := bytes.NewReader([]byte(MENU_JSON_STREAM))
+	err := helpers.WriteToDisk("menu.json", r, fs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	viper.Set("MenuUrl", "menu.json")
+	m := MenuLoadFromJson(nil, fs)
+	viper.Set("MenuUrl", "")
+
+	if len(m) != 6 {
+		t.Errorf("Expected 6 menu items but got %d", len(m))
+	}
+
+	if _, ok := m["grandparent"]; !ok {
+		t.Errorf("Missing menu item grandparent!")
+	}
+
+	mNil := MenuLoadFromJson(nil, fs)
+	if mNil != nil {
+		t.Error("MenuUrl is empty but the map is not!")
+	}
 }
