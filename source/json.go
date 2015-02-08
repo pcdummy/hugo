@@ -14,10 +14,8 @@
 package source
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"bytes"
 	"path/filepath"
@@ -50,7 +48,7 @@ func loadJson(hc *http.Client, fs afero.Fs) []Pager {
 		return nil
 	}
 
-	dec, err := jsonDecoder(url, hc, fs)
+	dec, err := helpers.JsonDecoder(url, hc, fs)
 	if err != nil || dec == nil {
 		jww.ERROR.Printf("Failed to get json resource \"%s\" with error message: %s", url, err)
 		return nil
@@ -73,28 +71,4 @@ func loadJson(hc *http.Client, fs afero.Fs) []Pager {
 	}
 
 	return sources
-}
-
-func jsonDecoder(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error) {
-	if url == "" {
-		return nil, nil
-	}
-	if strings.Contains(url, "://") {
-		jww.INFO.Printf("Downloading content JSON: %s ...", url)
-		res, err := hc.Get(url)
-		if err != nil {
-			return nil, err
-		}
-		return json.NewDecoder(res.Body), nil
-	}
-
-	if e, err := helpers.Exists(url, fs); !e {
-		return nil, err
-	}
-
-	f, err := fs.Open(url)
-	if err != nil {
-		return nil, err
-	}
-	return json.NewDecoder(f), nil
 }

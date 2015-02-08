@@ -56,7 +56,7 @@ var hugoCmdV *cobra.Command
 
 //Flags that are to be added to commands.
 var BuildWatch, IgnoreCache, Draft, Future, UglyUrls, Verbose, Logging, VerboseLog, DisableRSS, DisableSitemap, PluralizeListTitles, NoTimes bool
-var Source, SourceUrl, CacheDir, Destination, Theme, BaseUrl, CfgFile, LogFile, Editor string
+var Source, SourceUrl, MenuUrl, CacheDir, Destination, Theme, BaseUrl, CfgFile, LogFile, Editor string
 
 //Execute adds all child commands to the root command HugoCmd and sets flags appropriately.
 func Execute() {
@@ -82,7 +82,8 @@ func init() {
 	HugoCmd.PersistentFlags().BoolVar(&DisableRSS, "disableRSS", false, "Do not build RSS files")
 	HugoCmd.PersistentFlags().BoolVar(&DisableSitemap, "disableSitemap", false, "Do not build Sitemap file")
 	HugoCmd.PersistentFlags().StringVarP(&Source, "source", "s", "", "filesystem path to read files relative from")
-	HugoCmd.PersistentFlags().StringVar(&SourceUrl, "sourceUrl", "", "URL to JSON source to generate the source files")
+	HugoCmd.PersistentFlags().StringVar(&SourceUrl, "sourceUrl", "", "URL to streamed JSON source")
+	HugoCmd.PersistentFlags().StringVar(&MenuUrl, "menuUrl", "", "URL to streamed JSON menu")
 	HugoCmd.PersistentFlags().StringVarP(&CacheDir, "cacheDir", "", "$TMPDIR/hugo_cache/", "filesystem path to cache directory")
 	HugoCmd.PersistentFlags().BoolVarP(&IgnoreCache, "ignoreCache", "", false, "Ignores the cache directory for reading but still writes to it")
 	HugoCmd.PersistentFlags().StringVarP(&Destination, "destination", "d", "", "filesystem path to write files to")
@@ -119,6 +120,7 @@ func InitializeConfig() {
 	viper.SetDefault("DisableSitemap", false)
 	viper.SetDefault("ContentDir", "content")
 	viper.SetDefault("SourceUrl", "")
+	viper.SetDefault("MenuUrl", "")
 	viper.SetDefault("LayoutDir", "layouts")
 	viper.SetDefault("StaticDir", "static")
 	viper.SetDefault("ArchetypeDir", "archetypes")
@@ -208,6 +210,10 @@ func InitializeConfig() {
 
 	if SourceUrl != "" {
 		viper.Set("SourceUrl", SourceUrl)
+	}
+
+	if MenuUrl != "" {
+		viper.Set("MenuUrl", MenuUrl)
 	}
 
 	if hugoCmdV.PersistentFlags().Lookup("ignoreCache").Changed {

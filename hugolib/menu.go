@@ -15,10 +15,16 @@ package hugolib
 
 import (
 	"html/template"
+	"io"
+	"net/http"
 	"sort"
 	"strings"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/cast"
+	"github.com/spf13/hugo/helpers"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
 )
 
 type MenuEntry struct {
@@ -182,4 +188,42 @@ func (m Menu) Reverse() Menu {
 	}
 
 	return m
+}
+
+// MenuLoadFromJson loads a JSON stream from a remote or local source
+func MenuLoadFromJson(hc *http.Client, fs afero.Fs) map[string]interface{} {
+	url := viper.GetString("MenuUrl")
+	if url == "" {
+		return nil
+	}
+
+	if hc == nil {
+		hc = http.DefaultClient
+	}
+
+	dec, err := helpers.JsonDecoder(url, hc, fs)
+	if err != nil || dec == nil {
+		jww.ERROR.Printf("Failed to get menu json resource \"%s\" with error message: %s", url, err)
+		return nil
+	}
+
+	c := 0
+	ret := make(map[string]interface{})
+	jww.INFO.Printf("Generating menu from JSON %s", url)
+	for {
+		var si map[string]interface{}
+		if err := dec.Decode(&si); err == io.EOF {
+			jww.INFO.Printf("Generated %d menu entries from JSON stream", c)
+			break
+		} else if err != nil {
+			jww.WARN.Printf("Parser Error in JSON stream: %s", err.Error())
+		} else {
+			for k, v := range si {
+				ret[k] = v
+			}
+			c++
+		}
+	}
+
+	return ret
 }
