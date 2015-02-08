@@ -32,7 +32,7 @@ func getTestServer(handler func(w http.ResponseWriter, r *http.Request)) (*httpt
 	return testServer, client
 }
 
-func TestJsonPage(t *testing.T) {
+func TestjsonPage(t *testing.T) {
 	tests := []struct {
 		pathActual   string
 		pathExpected string
@@ -55,7 +55,7 @@ func TestJsonPage(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		jp := &JsonPage{
+		jp := &jsonPage{
 			FilePath: test.pathActual,
 			Content:  test.content,
 		}
@@ -104,7 +104,7 @@ func TestJsonStreamToFiles(t *testing.T) {
 		})
 		defer func() { srv.Close() }()
 		viper.Set("SourceUrl", test.sourceUrl)
-		pages := jsonStreamToFiles(cl, fs)
+		pages := loadJson(cl, fs)
 
 		if len(pages) != test.expectedCount {
 			t.Errorf("URL %s Expected: %d but got: %d", test.sourceUrl, test.expectedCount, len(pages))
