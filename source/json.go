@@ -29,22 +29,22 @@ import (
 )
 
 type (
-	JsonPage struct {
+	jsonPage struct {
 		FilePath string `json:"Path"`
 		Content  string `json:"Content"`
 	}
 )
 
-func (p *JsonPage) Reader() io.Reader {
+func (p *jsonPage) Reader() io.Reader {
 	return bytes.NewReader([]byte(p.Content))
 }
 
-func (p *JsonPage) Path() string {
+func (p *jsonPage) Path() string {
 	return filepath.Clean(p.FilePath)
 }
 
 // jsonStreamToFiles acts as the main function to be called in url.go
-func jsonStreamToFiles(hc *http.Client, fs afero.Fs) []Pager {
+func loadJson(hc *http.Client, fs afero.Fs) []Pager {
 	url := viper.GetString("SourceUrl")
 	if url == "" {
 		return nil
@@ -60,7 +60,7 @@ func jsonStreamToFiles(hc *http.Client, fs afero.Fs) []Pager {
 	sources := make([]Pager, 0, 1000)
 	jww.INFO.Printf("Generating files from JSON %s", url)
 	for {
-		var s JsonPage
+		var s jsonPage
 		if err := dec.Decode(&s); err == io.EOF {
 			jww.INFO.Printf("Generated %d file/s from JSON stream", c)
 			break
@@ -81,7 +81,6 @@ func jsonDecoder(url string, hc *http.Client, fs afero.Fs) (*json.Decoder, error
 	}
 	if strings.Contains(url, "://") {
 		jww.INFO.Printf("Downloading content JSON: %s ...", url)
-		// @todo check if filename contains json or response header contains json
 		res, err := hc.Get(url)
 		if err != nil {
 			return nil, err
