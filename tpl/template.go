@@ -15,13 +15,9 @@ package tpl
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/eknkc/amber"
-	"github.com/spf13/cast"
-	"github.com/spf13/hugo/helpers"
-	jww "github.com/spf13/jwalterweatherman"
-	"github.com/yosssi/ace"
 	"html"
 	"html/template"
 	"io"
@@ -32,6 +28,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/eknkc/amber"
+	krpretty "github.com/kr/pretty"
+	"github.com/spf13/cast"
+	"github.com/spf13/hugo/helpers"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/yosssi/ace"
 )
 
 var localTemplates *template.Template
@@ -605,6 +608,20 @@ func applyFnToThis(fn, this reflect.Value, args ...interface{}) (reflect.Value, 
 	} else {
 		return reflect.ValueOf(nil), res[1].Interface().(error)
 	}
+}
+
+func Dump(input interface{}) (interface{}, error) {
+	jww.ERROR.Printf("Dump dump, '%s'\n", reflect.TypeOf(input))
+	json, err := json.MarshalIndent(input.(map[string]interface{}), "", " ")
+	krp := krpretty.Sprintf("%# v", input)
+	if err != nil {
+		jww.INFO.Printf("Error on dump, '%s'\n", err)
+		return nil, err
+	}
+
+	jww.INFO.Printf("Dump json, '%s'\n", json)
+	jww.INFO.Printf("Dump krp, '%s'\n", krp)
+	return "", nil
 }
 
 func Delimit(seq, delimiter interface{}, last ...interface{}) (template.HTML, error) {
@@ -1263,6 +1280,7 @@ func init() {
 		"first":       First,
 		"where":       Where,
 		"delimit":     Delimit,
+		"dump":        Dump,
 		"sort":        Sort,
 		"highlight":   Highlight,
 		"add":         func(a, b interface{}) (interface{}, error) { return doArithmetic(a, b, '+') },

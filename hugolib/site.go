@@ -15,6 +15,7 @@ package hugolib
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -108,7 +109,7 @@ type SiteInfo struct {
 	Permalinks      PermalinkOverrides
 	Params          map[string]interface{}
 	BuildDrafts     bool
-	Data            *map[string]interface{}
+	Data            map[string]interface{}
 }
 
 // SiteSocial is a place to put social details on a site level. These are the
@@ -261,6 +262,7 @@ func (s *Site) loadData(fs source.Input) (err error) {
 	s.Data = make(map[string]interface{})
 
 	for _, r := range fs.Files() {
+		// jww.INFO.Printf("Loading: %s", r)
 		// Crawl in data tree to insert data
 		var current map[string]interface{}
 		current = s.Data
@@ -318,8 +320,20 @@ func (s *Site) Process() (err error) {
 	}
 	s.prepTemplates()
 	s.timerStep("load data")
-	if err = s.loadData(&source.Filesystem{Base: s.absDataDir()}); err != nil {
+	dataBase := s.absDataDir()
+	_, err = os.Lstat(dataBase)
+	if err != nil {
+		jww.WARN.Printf(
+			"Got error '%s' while checking the data directory", err)
+		return nil
+	}
+	if err = s.loadData(&source.Filesystem{Base: dataBase}); err != nil {
 		return
+	}
+	if json, err := json.MarshalIndent(s.Data, "", " "); err == nil {
+		jww.INFO.Printf("%s\n", json)
+	} else {
+		jww.ERROR.Printf("Marshal %s", err)
 	}
 	s.timerStep("initialize & template prep")
 	if err = s.CreatePages(); err != nil {
@@ -429,7 +443,7 @@ func (s *Site) initializeSiteInfo() {
 		Menus:           &s.Menus,
 		Params:          params,
 		Permalinks:      permalinks,
-		Data:            &s.Data,
+		Data:            s.Data,
 	}
 }
 
